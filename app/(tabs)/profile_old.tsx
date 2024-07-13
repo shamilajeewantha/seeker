@@ -1,59 +1,71 @@
-import { StyleSheet, Text, View, TouchableWithoutFeedback } from 'react-native';
-import React, { useState } from 'react';
-import { ThemedText } from '@/components/ThemedText';
+import React, { useRef, useState } from 'react';
+import { StyleSheet, View, Animated, Text } from 'react-native';
+import { GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, State } from 'react-native-gesture-handler';
 
-export default function TankControl() {
-  const [leftTrackActive, setLeftTrackActive] = useState(false);
-  const [rightTrackActive, setRightTrackActive] = useState(false);
+const MAX_TRANSLATION = 255; // Define maximum translation limit
 
-  const handleLeftTrackPressIn = () => {
-    setLeftTrackActive(true);
-    console.log('Left Track pressed');
-    // You can add additional actions or log messages here if needed
-  };
+const DraggableRect = ({ id }: { id: number }) => {
 
-  const handleLeftTrackPressOut = () => {
-    setLeftTrackActive(false);
-    console.log('Left Track released');
-    // Additional actions or log messages on release can be added here
-  };
+  return (
+    <View style={styles.rectangle}>
+      <Joystick id={id} />
+    </View>
+  );
+};
 
-  const handleRightTrackPressIn = () => {
-    setRightTrackActive(true);
-    console.log('Right Track pressed');
-  };
+const Joystick = ({ id }: { id: number }) => {
+  const translateY = useRef(new Animated.Value(0)).current;
+  const [displacement, setDisplacement] = useState(0);
 
-  const handleRightTrackPressOut = () => {
-    setRightTrackActive(false);
-    console.log('Right Track released');
+  const onGestureEvent = Animated.event(
+    [{ nativeEvent: { translationY: translateY } }],
+    {
+      useNativeDriver: true,
+      listener: (event: PanGestureHandlerGestureEvent) => {
+        let { translationY } = event.nativeEvent;
+        
+        // Clamp translationY to max translation value
+        translationY = Math.max(-MAX_TRANSLATION, Math.min(translationY, MAX_TRANSLATION));
+        setDisplacement(Math.abs(translationY));
+        translateY.setValue(translationY);
+      },
+    }
+  );
+
+  const onHandlerStateChange = (event: PanGestureHandlerGestureEvent) => {
+    if (event.nativeEvent.state === State.END) {
+      Animated.spring(translateY, {
+        toValue: 0,
+        useNativeDriver: true,
+        damping: 10, // Adjust damping for smoother movement
+        stiffness: 100, // Adjust stiffness for quicker return to center
+      }).start();
+      setDisplacement(0); // Reset displacement when gesture ends
+    }
   };
 
   return (
-    <View style={styles.container}>
-      <ThemedText style={styles.header}>Tank Control</ThemedText>
-      
-      <View style={styles.controls}>
-        <TouchableWithoutFeedback
-          onPressIn={handleLeftTrackPressIn}
-          onPressOut={handleLeftTrackPressOut}
-        >
-          <View style={[styles.button, leftTrackActive && styles.activeButton]}>
-            <Text style={styles.buttonText}>Left Track</Text>
-          </View>
-        </TouchableWithoutFeedback>
-        
-        <TouchableWithoutFeedback
-          onPressIn={handleRightTrackPressIn}
-          onPressOut={handleRightTrackPressOut}
-        >
-          <View style={[styles.button, rightTrackActive && styles.activeButton]}>
-            <Text style={styles.buttonText}>Right Track</Text>
-          </View>
-        </TouchableWithoutFeedback>
-      </View>
-    </View>
+    <PanGestureHandler
+      onGestureEvent={onGestureEvent}
+      onHandlerStateChange={onHandlerStateChange}
+    >
+      <Animated.View style={[styles.joystick, { transform: [{ translateY }] }]}>
+        <Text style={styles.displacementText}>{displacement.toFixed(0)}</Text>
+      </Animated.View>
+    </PanGestureHandler>
   );
-}
+};
+
+const MultiTouchDragExample = () => {
+  return (
+    <GestureHandlerRootView style={styles.container}>
+      <View style={styles.rectContainer}>
+        <DraggableRect id={1} />
+        <DraggableRect id={2} />
+      </View>
+    </GestureHandlerRootView>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -61,31 +73,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  controls: {
+  rectContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
     width: '100%',
+    height: 200,
   },
-  button: {
-    backgroundColor: '#007BFF',
-    paddingHorizontal: 25,
-    paddingVertical: 130,
-    borderRadius: 5,
-    marginBottom: 10,
+  rectangle: {
+    width: 200,
+    height: 500,
+    backgroundColor: 'blue',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  activeButton: {
-    backgroundColor: '#0056b3',
+  joystick: {
+    width: 170,
+    height: 150,
+    borderRadius: 25,
+    backgroundColor: 'red',
+    position: 'absolute',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
+  displacementText: {
+    color: 'white',
     fontWeight: 'bold',
-    textAlign: 'center',
   },
 });
+
+export default MultiTouchDragExample;
