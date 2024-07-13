@@ -5,9 +5,33 @@ import { GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEven
 const MAX_TRANSLATION = 255; // Define maximum translation limit
 
 const DraggableRect = ({ id }: { id: number }) => {
+  const initialPosition = useRef({ x: 0, y: 0 });
+
+  const onGestureEvent = (event: PanGestureHandlerGestureEvent) => {
+    const { absoluteX, absoluteY } = event.nativeEvent;
+
+    // Log the current position
+    const currentPosition = { x: absoluteX, y: absoluteY };
+    console.log(`Rectangle ${id} dragged to:`, currentPosition);
+  };
+
+  const onHandlerStateChange = (event: PanGestureHandlerGestureEvent) => {
+    const { absoluteX, absoluteY, translationX, translationY, state } = event.nativeEvent;
+
+    if (state === State.BEGAN) {
+      initialPosition.current = { x: absoluteX - translationX, y: absoluteY - translationY };
+      console.log(`Rectangle ${id} gesture started at:`, initialPosition.current);
+    }
+  };
 
   return (
     <View style={styles.rectangle}>
+      <PanGestureHandler
+        onGestureEvent={onGestureEvent}
+        onHandlerStateChange={onHandlerStateChange}
+      >
+        <View style={StyleSheet.absoluteFill} />
+      </PanGestureHandler>
       <Joystick id={id} />
     </View>
   );
@@ -22,12 +46,14 @@ const Joystick = ({ id }: { id: number }) => {
     {
       useNativeDriver: true,
       listener: (event: PanGestureHandlerGestureEvent) => {
-        let { translationY } = event.nativeEvent;
-        
-        // Clamp translationY to max translation value
-        translationY = Math.max(-MAX_TRANSLATION, Math.min(translationY, MAX_TRANSLATION));
-        setDisplacement(Math.abs(translationY));
-        translateY.setValue(translationY);
+        const { translationY } = event.nativeEvent;
+          setDisplacement(Math.abs(translationY));
+          if (translationY > MAX_TRANSLATION) {            
+            translateY.setValue(MAX_TRANSLATION);          
+          }
+          else if (translationY < -MAX_TRANSLATION){
+            translateY.setValue(-MAX_TRANSLATION);
+          }
       },
     }
   );
