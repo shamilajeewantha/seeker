@@ -1,6 +1,20 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { StyleSheet, View, Animated, Text } from 'react-native';
 import { GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, State } from 'react-native-gesture-handler';
+import io from 'socket.io-client';
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 const MAX_TRANSLATION = 255; // Define maximum translation limit
 
@@ -38,6 +52,52 @@ const DraggableRect = ({ id }: { id: number }) => {
 };
 
 const Joystick = ({ id }: { id: number }) => {
+
+  const SERVER_URL = 'https://walrus-lenient-surely.ngrok-free.app'; // Replace with your actual server URL
+
+
+  const [message, setMessage] = useState('');
+  const [receivedMessage, setReceivedMessage] = useState('');
+  const [socket, setSocket] = useState<SocketIOClient.Socket | null>(null);
+  
+  useEffect(() => {
+    const newSocket = io(SERVER_URL);
+    setSocket(newSocket);
+  
+    newSocket.on('connect', () => {
+      console.log('Connected to Socket.IO server');
+    });
+  
+    newSocket.on('message', (message: string) => {
+      console.log('Received message:', message);
+      setReceivedMessage(message); // Update state with received message
+    });
+  
+    return () => {
+      newSocket.disconnect(); // Clean up on unmount
+    };
+  }, []);
+  
+  const sendMessage = (message: string) => {
+    if (socket) {
+      socket.emit('message', message); // Emit message to server
+      console.log('Sent message:', message);
+    }
+  };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   const translateY = useRef(new Animated.Value(0)).current;
   const [displacement, setDisplacement] = useState(0);
 
@@ -48,6 +108,7 @@ const Joystick = ({ id }: { id: number }) => {
       listener: (event: PanGestureHandlerGestureEvent) => {
         const { translationY } = event.nativeEvent;
           setDisplacement(Math.abs(translationY));
+          sendMessage(displacement.toString());
           if (translationY > MAX_TRANSLATION) {            
             translateY.setValue(MAX_TRANSLATION);          
           }
